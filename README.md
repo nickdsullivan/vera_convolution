@@ -15,7 +15,7 @@ The trained models' weights are provided [here](https://drive.google.com/drive/f
  ```
  To train the model with CBAM, run
   ```
- python train.py --data_folder [YOUR DATASET FOLDER NAME] --gpus [NUMBER OF GPU] --use_cbam
+ python train.py --data_folder [YOUR DATASET FOLDER NAME] --gpus [NUMBER OF GPU] --use_cbam --use_vera
  ```
  
  There are more arguments that can be supplied to the command. Run 

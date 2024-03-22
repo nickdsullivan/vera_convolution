@@ -12,19 +12,19 @@ class BottleNeck(nn.Module):
     '''Bottleneck modules
     '''
 
-    def __init__(self, in_channels, out_channels, expansion=1, stride=1, use_cbam=True,use_vera=True):
+    def __init__(self, in_channels, out_channels, expansion=1, stride=1, use_cbam=True,use_vera=True,use_lora=False):
         '''Param init.
         '''
         super(BottleNeck, self).__init__()
-        self.use_vera = use_vera
+        self.use_vera = use_vera or use_lora
         self.use_cbam = use_cbam
         #only the first conv will be affected by the given stride parameter. The rest have default stride value (which is 1).
         if self.use_vera:
-            self.conv1 = ConvLoRA(nn.Conv2d, in_channels=in_channels, out_channels=out_channels, stride=stride, kernel_size=1,r=4)
+            self.conv1 = ConvLoRA(nn.Conv2d, in_channels=in_channels, out_channels=out_channels, stride=stride, kernel_size=1,r=4, use_vera = use_vera)
             self.conv1.name= "lora1"
-            self.conv2 = ConvLoRA(nn.Conv2d, in_channels=out_channels, out_channels=out_channels,padding = 1,kernel_size=3,r=4)
+            self.conv2 = ConvLoRA(nn.Conv2d, in_channels=out_channels, out_channels=out_channels,padding = 1,kernel_size=3,r=4, use_vera = use_vera)
             self.conv1.name= "lora2"
-            self.conv3 = ConvLoRA(nn.Conv2d, in_channels=out_channels, out_channels=out_channels*expansion,kernel_size=1,r=4)
+            self.conv3 = ConvLoRA(nn.Conv2d, in_channels=out_channels, out_channels=out_channels*expansion,kernel_size=1,r=4, use_vera = use_vera)
             self.conv1.name= "conv3"
             self.bn1 = nn.BatchNorm2d(num_features=out_channels)
             self.bn2 = nn.BatchNorm2d(num_features=out_channels)
@@ -79,7 +79,7 @@ class ResNet50(nn.Module):
     '''ResNet-50 Architecture.
     '''
 
-    def __init__(self, use_cbam=True, use_vera=True, image_depth=3, num_classes=6):
+    def __init__(self, use_cbam=True, use_vera=True, use_lora=False, image_depth=3, num_classes=6):
         '''Params init and build arch.
         '''
         super(ResNet50, self).__init__()
@@ -93,23 +93,23 @@ class ResNet50(nn.Module):
                                             nn.ReLU(inplace=True),
                                             nn.MaxPool2d(stride=2, kernel_size=3, padding=1))
         
-        self.layer1 = self.make_layer(out_channels=64, num_blocks=self.num_blocks[0], stride=1, use_cbam=use_cbam, use_vera=use_vera)
-        self.layer2 = self.make_layer(out_channels=128, num_blocks=self.num_blocks[1], stride=2, use_cbam=use_cbam, use_vera=use_vera)
-        self.layer3 = self.make_layer(out_channels=256, num_blocks=self.num_blocks[2], stride=2, use_cbam=use_cbam, use_vera=use_vera)
-        self.layer4 = self.make_layer(out_channels=512, num_blocks=self.num_blocks[3], stride=2, use_cbam=use_cbam, use_vera=use_vera)
+        self.layer1 = self.make_layer(out_channels=64, num_blocks=self.num_blocks[0], stride=1, use_cbam=use_cbam, use_lora=use_lora, use_vera=use_vera)
+        self.layer2 = self.make_layer(out_channels=128, num_blocks=self.num_blocks[1], stride=2, use_cbam=use_cbam, use_lora=use_lora, use_vera=use_vera)
+        self.layer3 = self.make_layer(out_channels=256, num_blocks=self.num_blocks[2], stride=2, use_cbam=use_cbam, use_lora=use_lora, use_vera=use_vera)
+        self.layer4 = self.make_layer(out_channels=512, num_blocks=self.num_blocks[3], stride=2, use_cbam=use_cbam, use_lora=use_lora, use_vera=use_vera)
         
         #print(self.layer1.numel())
         self.avgpool = nn.AvgPool2d(7)
         self.linear = nn.Linear(512*self.expansion, num_classes)
 
 
-    def make_layer(self, out_channels, num_blocks, stride, use_cbam, use_vera):
+    def make_layer(self, out_channels, num_blocks, stride, use_cbam, use_vera,use_lora):
         '''To construct the bottleneck layers.
         '''
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
         for stride in strides:
-            layers.append(BottleNeck(in_channels=self.in_channels, out_channels=out_channels, stride=stride, expansion=self.expansion, use_cbam=use_cbam ,use_vera=use_vera))
+            layers.append(BottleNeck(in_channels=self.in_channels, out_channels=out_channels, stride=stride, expansion=self.expansion, use_cbam=use_cbam, use_vera=use_vera, use_lora=use_lora))
             self.in_channels = out_channels * self.expansion
         return nn.Sequential(*layers)
 

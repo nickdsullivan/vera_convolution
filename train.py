@@ -40,7 +40,7 @@ def train(gpu, args):
 
     #dist.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
 
-    model = ResNet50(image_depth=args.img_depth, num_classes=args.num_classes, use_cbam=args.use_cbam,use_vera = args.use_vera)
+    model = ResNet50(image_depth=args.img_depth, num_classes=args.num_classes, use_cbam=args.use_cbam,use_vera = args.use_vera, use_lora = args.use_lora)
     #torch.cuda.set_device(gpu)
     #model.cuda(gpu)
 
@@ -74,6 +74,7 @@ def train(gpu, args):
     testing_acc_list = []
 
     best_accuracy = 0
+    print(len(train_generator))
     print("***************************")
     print("Number of trainable parameters")
     print(sum(p.numel() for p in model.parameters() if p.requires_grad))

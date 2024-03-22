@@ -9,6 +9,7 @@ parser.add_argument('--data_folder', type=str, help='Specify the path to the fol
 parser.add_argument('--graphs_folder', type=str, help='Specify the path to the folder where the graphs should be written to.', default='./graphs/')
 parser.add_argument('--use_cbam', help='Use this flag in order to make use of CBAM.', action='store_true')
 parser.add_argument('--use_vera', help='Use this flag in order to make use of vera.', action='store_true')
+parser.add_argument('--use_lora', help='Use this flag in order to make use of lora.', action='store_true')
 parser.add_argument('--model', type=str, help='Specify the model to train. Either resnet-50 or resnet-50-cbam.', default='resnet-50')
 parser.add_argument('--epoch', type=int, help='Specify the number of epochs for the training.', default=50)
 parser.add_argument('--batch_size', type=int, help='Specify the batch size to be used during training/testing.', default=10)
