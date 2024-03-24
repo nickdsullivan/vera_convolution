@@ -259,7 +259,7 @@ class ConvLoRA(nn.Module, LoRALayer):
                 
 
                 self.lora_d = nn.Parameter(
-                    self.conv.weight.new_zeros((r * kernel_size, r * kernel_size))
+                    self.conv.weight.new_zeros(r * kernel_size)
                 )
                 
                 self.lora_B = nn.Parameter(
@@ -267,11 +267,13 @@ class ConvLoRA(nn.Module, LoRALayer):
                 )
                 
                 self.lora_b = nn.Parameter(
-                    self.conv.weight.new_zeros((out_channels // self.conv.groups * kernel_size, out_channels // self.conv.groups * kernel_size))
+                    self.conv.weight.new_zeros(out_channels // self.conv.groups * kernel_size)
                 )
                 # Freeze A and B
                 self.lora_A.requires_grad = False
                 self.lora_B.requires_grad = False
+                self.lora_d.data = torch.rand(self.lora_d.size())
+                
             else:
                 self.lora_A = nn.Parameter(
                     self.conv.weight.new_zeros((r * kernel_size, in_channels * kernel_size))
@@ -295,9 +297,11 @@ class ConvLoRA(nn.Module, LoRALayer):
             # initialize A the same way as the default for nn.Linear and B to zero
             if self.is_vera:
                 nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-                nn.init.kaiming_uniform_(self.lora_d, a=math.sqrt(5))
+                self.lora_d.data = torch.rand(self.lora_d.size())
                 nn.init.kaiming_uniform_(self.lora_B, a=math.sqrt(5))
                 nn.init.zeros_(self.lora_b)
+                self.lora_A.requires_grad = False
+                self.lora_B.requires_grad = False
 
     def train(self, mode=True):
         super(ConvLoRA, self).train(mode)
@@ -306,7 +310,7 @@ class ConvLoRA(nn.Module, LoRALayer):
                 if self.r > 0:
                     # Make sure that the weights are not merged
                     if self.is_vera:
-                        self.conv.weight.data -= (self.lora_b @ self.lora_B @ self.lora_d @ self.lora_A).view(self.conv.weight.shape) * self.scaling
+                        self.conv.weight.data -= (torch.diag(self.lora_b) @ self.lora_B @ torch.diag(self.lora_d) @ self.lora_A).view(self.conv.weight.shape) * self.scaling
                     else:
                         self.conv.weight.data -= (self.lora_B @ self.lora_A).view(self.conv.weight.shape) * self.scaling
 
@@ -316,9 +320,9 @@ class ConvLoRA(nn.Module, LoRALayer):
                 if self.r > 0:
                     # Merge the weights and mark it
                     if self.is_vera:
-                        self.conv.weight.data += (self.lora_b @ self.lora_B @ self.lora_d @ self.lora_A).view(self.conv.weight.shape) * self.scaling
+                        self.conv.weight.data += (torch.diag(self.lora_b) @ self.lora_B @ torch.diag(self.lora_d) @ self.lora_A).view(self.conv.weight.shape) * self.scaling
                     else:
-                        self.conv.weight.data += (self.lora_b @ self.lora_B @ self.lora_d @ self.lora_A).view(self.conv.weight.shape) * self.scaling
+                        self.conv.weight.data += (self.lora_B @ self.lora_A).view(self.conv.weight.shape) * self.scaling
                 self.merged = True
 
     def forward(self, x):
@@ -326,7 +330,7 @@ class ConvLoRA(nn.Module, LoRALayer):
             if self.is_vera:
                 return self.conv._conv_forward(
                     x, 
-                    self.conv.weight + (self.lora_b @ self.lora_B @ self.lora_d @ self.lora_A).view(self.conv.weight.shape) * self.scaling,
+                    self.conv.weight + (torch.diag(self.lora_b) @ self.lora_B @ torch.diag(self.lora_d) @ self.lora_A).view(self.conv.weight.shape) * self.scaling,
                     self.conv.bias
                 )
             else:
