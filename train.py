@@ -4,7 +4,7 @@
 
 import os
 from tqdm import tqdm
-import torch
+import torch 
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.optim import Adam, lr_scheduler
@@ -18,7 +18,9 @@ from runtime_args import args
 from load_dataset import LoadDataset
 from plot import plot_loss_acc
 from helpers import calculate_accuracy
+import torchvision.datasets as datasets
 
+import torchvision.transforms as transforms
 
 # device = torch.device("cuda:0" if torch.cuda.is_available() and args.device == 'gpu' else 'cpu')
 
@@ -34,13 +36,13 @@ def train(gpu, args):
     '''
     print("init")
 
-    #rank = args.rank * args.gpus + gpu
-    #world_size = args.gpus * args.nodes
+    transform = transforms.Compose([
+        transforms.Resize((args.img_size,args.img_size)),
+        transforms.Grayscale(num_output_channels=args.img_depth),
+        transforms.ToTensor(),
+        ])
 
-
-    #dist.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-
-    model = ResNet50(image_depth=args.img_depth, num_classes=args.num_classes, use_cbam=args.use_cbam,use_vera = args.use_vera, use_lora = args.use_lora)
+    model = ResNet50(image_depth=args.img_depth, num_classes=args.num_classes, use_cbam=args.use_cbam,use_vera = args.use_vera, use_lora = args.use_lora,img_size=args.img_size)
     #torch.cuda.set_device(gpu)
     #model.cuda(gpu)
 
@@ -52,20 +54,22 @@ def train(gpu, args):
 
     summary(model, (3, 224, 224))
 
-    #model = nn.parallel.DistributedDataParallel(model, device_ids=[gpu])
 
-    train_dataset = LoadDataset(dataset_folder_path=args.data_folder, image_size=args.img_size, image_depth=args.img_depth, train=True,
-                            transform=transforms.ToTensor())
-    test_dataset = LoadDataset(dataset_folder_path=args.data_folder, image_size=args.img_size, image_depth=args.img_depth, train=False,
-                                transform=transforms.ToTensor())
+    #train_dataset = LoadDataset(dataset_folder_path=args.data_folder, image_size=args.img_size, image_depth=args.img_depth, train=True,
+    #transform=transforms.ToTensor())
+    #test_dataset = LoadDataset(dataset_folder_path=args.data_folder, image_size=args.img_size, image_depth=args.img_depth, train=False,
+    #transform=transforms.ToTensor())
+
+
+    train_dataset = datasets.MNIST(root=args.data_folder, train=True, download=False, transform=transform)
+    test_dataset = datasets.MNIST(root=args.data_folder, train=False, download=False, transform=transform)
+
     train_sampler = torch.utils.data.RandomSampler(train_dataset)
-
     #train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
     # test_sampler = torch.utils.data.distributed.DistributedSampler(test_dataset, num_replicas=world_size, rank=rank)
 
-    train_generator = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True, sampler=train_sampler)
-    test_generator = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False,
-                                    pin_memory=True)
+    train_generator = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, sampler=train_sampler)
+    test_generator = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
 
 
     training_loss_list = []
@@ -79,8 +83,7 @@ def train(gpu, args):
     print("Number of trainable parameters")
     print(sum(p.numel() for p in model.parameters() if p.requires_grad))
     print("***************************")
-        #print(p.requires_grad)
-    
+    #print(p.requires_grad)
     for epoch_idx in range(args.epoch):
         #Model Training & Validation.
         model.train()
@@ -90,7 +93,10 @@ def train(gpu, args):
         i = 0
         for i, sample in tqdm(enumerate(train_generator)):
             #batch_x, batch_y = sample['image'].cuda(non_blocking=True), sample['label'].cuda(non_blocking=True)
-            batch_x, batch_y = sample['image'], sample['label']
+
+            
+            batch_x, batch_y = sample[0], sample[1]
+            
 
             optimizer.zero_grad()
 
@@ -121,7 +127,7 @@ def train(gpu, args):
             for i, sample in tqdm(enumerate(test_generator)):
 
                 #batch_x, batch_y = sample['image'].cuda(non_blocking=True), sample['label'].cuda(non_blocking=True)
-                batch_x, batch_y = sample['image'], sample['label']
+                batch_x, batch_y = sample[0], sample[1]
 
                 _,net_output = model(batch_x)
 
@@ -159,7 +165,6 @@ def train(gpu, args):
 
 
         print('\n--------------------------------------------------------------------------------\n')
-
 
 os.environ['MASTER_ADDR'] = '10.106.15.226'
 os.environ['MASTER_PORT'] = '8888'

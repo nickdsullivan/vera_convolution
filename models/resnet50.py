@@ -79,7 +79,7 @@ class ResNet50(nn.Module):
     '''ResNet-50 Architecture.
     '''
 
-    def __init__(self, use_cbam=True, use_vera=True, use_lora=False, image_depth=3, num_classes=6):
+    def __init__(self, use_cbam=True, use_vera=True, use_lora=False, image_depth=3, num_classes=6,img_size=224):
         '''Params init and build arch.
         '''
         super(ResNet50, self).__init__()
@@ -87,8 +87,8 @@ class ResNet50(nn.Module):
         self.in_channels = 64
         self.expansion = 4
         self.num_blocks = [3, 3, 3, 2]
-
-        self.conv_block1 = nn.Sequential(nn.Conv2d(kernel_size=7, stride=2, in_channels=image_depth, out_channels=self.in_channels, padding=3, bias=False),
+        self.img_size_multiplier = max(int(img_size//28)-1,1)
+        self.conv_block1 = nn.Sequential(nn.Conv2d(kernel_size=self.img_size_multiplier, stride=2, in_channels=image_depth, out_channels=self.in_channels, padding=3, bias=False),
                                             nn.BatchNorm2d(self.in_channels),
                                             nn.ReLU(inplace=True),
                                             nn.MaxPool2d(stride=2, kernel_size=3, padding=1))
@@ -99,8 +99,9 @@ class ResNet50(nn.Module):
         self.layer4 = self.make_layer(out_channels=512, num_blocks=self.num_blocks[3], stride=2, use_cbam=use_cbam, use_lora=use_lora, use_vera=use_vera)
         
         #print(self.layer1.numel())
-        self.avgpool = nn.AvgPool2d(7)
+        self.avgpool = nn.AvgPool2d(self.img_size_multiplier)
         self.linear = nn.Linear(512*self.expansion, num_classes)
+        #self.linear = nn.Linear(512*16, num_classes)
 
 
     def make_layer(self, out_channels, num_blocks, stride, use_cbam, use_vera,use_lora):
